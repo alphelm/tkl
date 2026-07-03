@@ -1,0 +1,245 @@
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const MM_PER_IN = 25.4;
+
+  const canvas = $('viewport');
+  const app = CoffeeSite.initScene(canvas);
+  const initialCam = app.camera.position.clone();
+  const initialTarget = app.controls.target.clone();
+
+  const state = {
+    unit: 'mm',
+    meshes: { baseBox: null, dome: null, diffuser: null },
+    lastInput: null,
+  };
+
+  const COLORS = { baseBox: 0xb8763f, dome: 0x3f7ea6, diffuser: 0xc9c2b4 };
+
+  function fmtLen(mm) {
+    return state.unit === 'mm'
+      ? mm.toFixed(1) + ' mm'
+      : (mm / MM_PER_IN).toFixed(2) + ' in';
+  }
+  function fmtBoth(mm) {
+    return mm.toFixed(1) + ' mm  (' + (mm / MM_PER_IN).toFixed(2) + '″)';
+  }
+
+  /* ---------------- unit toggle ---------------- */
+  document.querySelectorAll('.unit-toggle button').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const unit = btn.dataset.unit;
+      if (unit === state.unit) return;
+      const input = $('in-colanderOD');
+      const currentMm = state.unit === 'mm' ? parseFloat(input.value) : parseFloat(input.value) * MM_PER_IN;
+      state.unit = unit;
+      document.querySelectorAll('.unit-toggle button').forEach((b) => b.classList.toggle('active', b === btn));
+      input.value = unit === 'mm' ? Math.round(currentMm) : (currentMm / MM_PER_IN).toFixed(2);
+      input.step = unit === 'mm' ? '1' : '0.1';
+      input.min = unit === 'mm' ? '150' : (150 / MM_PER_IN).toFixed(1);
+      input.max = unit === 'mm' ? '400' : (400 / MM_PER_IN).toFixed(1);
+    });
+  });
+
+  /* ---------------- lip auto toggle ---------------- */
+  $('in-lipAuto').addEventListener('change', (e) => {
+    $('lipOD-field').hidden = e.target.checked;
+    scheduleRegenerate();
+  });
+
+  /* ---------------- hose preset ---------------- */
+  $('in-hosePreset').addEventListener('change', (e) => {
+    $('hoseCustom-field').hidden = e.target.value !== 'custom';
+    scheduleRegenerate();
+  });
+
+  /* ---------------- range readouts ---------------- */
+  const rangeReadouts = [
+    ['in-colanderLipThk', 'ro-lipThk', (v) => v + ' mm'],
+    ['in-wallT', 'ro-wallT', (v) => parseFloat(v).toFixed(1) + ' mm'],
+    ['in-boxHeight', 'ro-boxHeight', (v) => v + ' mm'],
+    ['in-domeRise', 'ro-domeRise', (v) => v + ' mm'],
+    ['in-spokeCount', 'ro-spokeCount', (v) => v],
+    ['in-vacPortZ', 'ro-vacPortZ', (v) => v + ' mm'],
+  ];
+  rangeReadouts.forEach(([inputId, outId, fmt]) => {
+    $(inputId).addEventListener('input', () => {
+      $(outId).textContent = fmt($(inputId).value);
+    });
+  });
+
+  /* ---------------- wire every field to regenerate ---------------- */
+  const watchedIds = [
+    'in-colanderOD', 'in-colanderLipOD', 'in-hosePreset', 'in-hoseCustom',
+    'in-colanderLipThk', 'in-wallT', 'in-boxHeight', 'in-domeRise',
+    'in-spokeCount', 'in-vacPortZ',
+  ];
+  watchedIds.forEach((id) => $(id).addEventListener('input', scheduleRegenerate));
+
+  /* ---------------- visibility toggles ---------------- */
+  document.querySelectorAll('[data-toggle]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const key = btn.dataset.toggle;
+      const on = !btn.classList.contains('active');
+      btn.classList.toggle('active', on);
+      app.groups[key].visible = on;
+    });
+  });
+
+  /* ---------------- explode ---------------- */
+  $('in-explode').addEventListener('input', (e) => {
+    const t = e.target.value / 100;
+    app.groups.dome.position.y = (state.lastInput ? state.lastInput.p.boxHeight : 100) + t * 150;
+    app.groups.diffuser.position.y = (state.lastInput ? state.lastInput.p.diffuserZ : 55) - t * 90;
+  });
+
+  /* ---------------- reset view ---------------- */
+  $('btn-reset-view').addEventListener('click', () => {
+    app.camera.position.copy(initialCam);
+    app.controls.target.copy(initialTarget);
+    app.controls.update();
+  });
+
+  /* ---------------- read inputs ---------------- */
+  function readInputs() {
+    const colanderODraw = parseFloat($('in-colanderOD').value);
+    const colanderOD = state.unit === 'mm' ? colanderODraw : colanderODraw * MM_PER_IN;
+
+    const lipAuto = $('in-lipAuto').checked;
+    const colanderLipOD = lipAuto ? undefined : parseFloat($('in-colanderLipOD').value);
+
+    const hosePreset = $('in-hosePreset').value;
+    const vacHoseID = hosePreset === 'custom' ? parseFloat($('in-hoseCustom').value) : parseFloat(hosePreset);
+
+    return {
+      colanderOD,
+      colanderLipOD,
+      colanderLipThk: parseFloat($('in-colanderLipThk').value),
+      wallT: parseFloat($('in-wallT').value),
+      floorT: 4,
+      boxHeight: parseFloat($('in-boxHeight').value),
+      vacHoseID,
+      vacPortCenterZ: parseFloat($('in-vacPortZ').value),
+      spokeCount: parseInt($('in-spokeCount').value, 10),
+      domeRise: parseFloat($('in-domeRise').value),
+    };
+  }
+
+  /* ---------------- regenerate (debounced) ---------------- */
+  let debounceHandle = null;
+  function scheduleRegenerate() {
+    if (debounceHandle) clearTimeout(debounceHandle);
+    setStatus('busy', 'Waiting for input to settle…');
+    debounceHandle = setTimeout(regenerate, 450);
+  }
+
+  function setStatus(kind, text) {
+    const dot = $('status-dot');
+    dot.classList.remove('busy', 'danger');
+    if (kind === 'busy') dot.classList.add('busy');
+    if (kind === 'danger') dot.classList.add('danger');
+    $('status-text').textContent = text;
+  }
+
+  function regenerate() {
+    setStatus('busy', 'Regenerating geometry…');
+    // let the busy state paint before the synchronous CSG work blocks the thread
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      try {
+        const input = readInputs();
+        if (!input.colanderOD || input.colanderOD < 100) {
+          setStatus('danger', 'Enter a colander diameter to generate the model.');
+          return;
+        }
+        const { p, baseBox, dome, diffuser, ms } = CoffeeSite.buildAll(input);
+
+        baseBox.material.color.setHex(COLORS.baseBox);
+        dome.material.color.setHex(COLORS.dome);
+        diffuser.material.color.setHex(COLORS.diffuser);
+
+        app.setMesh(app.groups.baseBox, baseBox);
+        app.setMesh(app.groups.dome, dome);
+        app.setMesh(app.groups.diffuser, diffuser);
+
+        const explodeT = $('in-explode').value / 100;
+        app.groups.dome.position.y = p.boxHeight + explodeT * 150;
+        app.groups.diffuser.position.y = p.diffuserZ - explodeT * 90;
+        app.controls.target.set(0, p.boxHeight * 0.55, 0);
+
+        state.meshes = { baseBox, dome, diffuser };
+        state.lastInput = { input, p };
+
+        const totalTris = baseBox.triCount + dome.triCount + diffuser.triCount;
+        $('stat-ms').textContent = Math.round(ms) + 'ms';
+        $('stat-tris').textContent = (totalTris / 1000).toFixed(1) + 'k';
+
+        renderDims(p);
+        renderWarnings(p.warnings);
+        ['dl-baseBox', 'dl-dome', 'dl-diffuser', 'dl-all'].forEach((id) => ($(id).disabled = false));
+
+        setStatus('ok', 'Ready — ' + Math.round(ms) + ' ms build');
+      } catch (err) {
+        console.error(err);
+        setStatus('danger', 'Could not generate this combination: ' + err.message);
+      }
+    }));
+  }
+
+  function renderDims(p) {
+    const rows = [
+      ['Base box OD', p.boxOD],
+      ['Colander seat ID', p.seatR * 2],
+      ['Vac spigot OD (friction fit)', p.spigotOD],
+      ['Vac bore ID (airflow)', p.boreR * 2],
+      ['Diffuser plate OD', p.diffuserR * 2],
+      ['Dome base OD', p.domeBaseR * 2],
+    ];
+    const tbody = document.querySelector('#dims-table tbody');
+    tbody.innerHTML = rows.map(([label, mm]) =>
+      '<tr><td>' + label + '</td><td>' + fmtBoth(mm) + '</td></tr>'
+    ).join('');
+  }
+
+  function renderWarnings(warnings) {
+    const group = $('warnings-group');
+    const list = $('warnings-list');
+    if (!warnings || warnings.length === 0) {
+      group.hidden = true;
+      list.innerHTML = '';
+      return;
+    }
+    group.hidden = false;
+    list.innerHTML = warnings.map((w) => '<div class="warning-chip">⚠ ' + w + '</div>').join('');
+  }
+
+  /* ---------------- downloads ---------------- */
+  function slug(p) {
+    return 'colanderOD' + Math.round(p.colanderOD) + 'mm';
+  }
+  function downloadPart(key, filename) {
+    const mesh = state.meshes[key];
+    if (!mesh) return;
+    const blob = CoffeeSite.meshToSTLBlob(mesh);
+    CoffeeSite.downloadBlob(blob, filename);
+  }
+  $('dl-baseBox').addEventListener('click', () => {
+    downloadPart('baseBox', 'base-box_' + slug(state.lastInput.input) + '.stl');
+  });
+  $('dl-dome').addEventListener('click', () => {
+    downloadPart('dome', 'dome-cover_' + slug(state.lastInput.input) + '.stl');
+  });
+  $('dl-diffuser').addEventListener('click', () => {
+    downloadPart('diffuser', 'diffuser-plate_' + slug(state.lastInput.input) + '.stl');
+  });
+  $('dl-all').addEventListener('click', () => {
+    const s = slug(state.lastInput.input);
+    downloadPart('baseBox', 'base-box_' + s + '.stl');
+    setTimeout(() => downloadPart('dome', 'dome-cover_' + s + '.stl'), 350);
+    setTimeout(() => downloadPart('diffuser', 'diffuser-plate_' + s + '.stl'), 700);
+  });
+  ['dl-baseBox', 'dl-dome', 'dl-diffuser', 'dl-all'].forEach((id) => ($(id).disabled = true));
+
+  /* ---------------- go ---------------- */
+  regenerate();
+})();
+</script>

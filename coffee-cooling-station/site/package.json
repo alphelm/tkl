@@ -1,0 +1,17 @@
+{
+  "name": "coffee-cooling-station-site",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Parametric 3D model generator for the coffee bean cooling station",
+  "scripts": {
+    "bundle": "esbuild src/main.js --bundle --format=iife --global-name=CoffeeSite --outfile=dist/bundle.js --minify",
+    "build": "npm run bundle && node build.js"
+  },
+  "dependencies": {
+    "three": "^0.185.1",
+    "three-bvh-csg": "^0.0.18"
+  },
+  "devDependencies": {
+    "esbuild": "^0.24.0"
+  }
+}

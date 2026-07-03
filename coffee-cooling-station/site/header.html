@@ -1,0 +1,660 @@
+<title>Cooling Station Generator</title>
+<style>
+@font-face{
+  font-family:"Fraunces Var";
+  src:url(data:font/woff2;base64,__FRAUNCES_600__) format("woff2");
+  font-weight:600; font-style:normal; font-display:swap;
+}
+@font-face{
+  font-family:"Fraunces Var";
+  src:url(data:font/woff2;base64,__FRAUNCES_900__) format("woff2");
+  font-weight:900; font-style:normal; font-display:swap;
+}
+@font-face{
+  font-family:"JetBrains Mono";
+  src:url(data:font/woff2;base64,__JBMONO_400__) format("woff2");
+  font-weight:400; font-style:normal; font-display:swap;
+}
+@font-face{
+  font-family:"JetBrains Mono";
+  src:url(data:font/woff2;base64,__JBMONO_600__) format("woff2");
+  font-weight:600; font-style:normal; font-display:swap;
+}
+
+:root{
+  --ink-950:#081420;
+  --ink-900:#0c1f30;
+  --ink-850:#112a3f;
+  --ink-800:#15334a;
+  --ink-700:#1d3f59;
+  --line-500:#3a5a76;
+  --line-300:#6d90ac;
+  --paper-100:#eef4f8;
+  --paper-050:#f8fbfd;
+  --copper-300:#e3a266;
+  --copper-500:#c9793d;
+  --copper-600:#a85f2c;
+  --copper-glow:rgba(201,121,61,0.35);
+  --teal-400:#5fa4c9;
+  --ok:#63b17a;
+  --warn:#d7a63f;
+  --danger:#dd6b5b;
+
+  --bg: var(--ink-950);
+  --bg-panel: var(--ink-900);
+  --bg-raised: var(--ink-850);
+  --bg-well: var(--ink-800);
+  --border: var(--ink-700);
+  --border-soft: rgba(109,144,172,0.28);
+  --text: var(--paper-100);
+  --text-dim: var(--line-300);
+  --text-faint: #4f7290;
+  --accent: var(--copper-500);
+  --accent-text: #241205;
+  --grid-line: rgba(109,144,172,0.14);
+
+  --font-display:"Fraunces Var", ui-serif, Georgia, serif;
+  --font-mono:"JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --font-body: -apple-system, "Segoe UI", ui-sans-serif, system-ui, sans-serif;
+
+  color-scheme: dark;
+}
+
+@media (prefers-color-scheme: light){
+  :root{
+    --bg:#eef3f6;
+    --bg-panel:#f8fbfd;
+    --bg-raised:#ffffff;
+    --bg-well:#e4ecf1;
+    --border:#c4d3dd;
+    --border-soft:rgba(58,90,118,0.22);
+    --text:#0f2536;
+    --text-dim:#3f5b70;
+    --text-faint:#7793a5;
+    --accent: var(--copper-600);
+    --accent-text:#fff7ef;
+    --grid-line: rgba(58,90,118,0.10);
+    color-scheme: light;
+  }
+}
+:root[data-theme="dark"]{
+  --bg: var(--ink-950); --bg-panel: var(--ink-900); --bg-raised: var(--ink-850); --bg-well: var(--ink-800);
+  --border: var(--ink-700); --border-soft: rgba(109,144,172,0.28);
+  --text: var(--paper-100); --text-dim: var(--line-300); --text-faint:#4f7290;
+  --accent: var(--copper-500); --accent-text:#241205; --grid-line: rgba(109,144,172,0.14);
+  color-scheme: dark;
+}
+:root[data-theme="light"]{
+  --bg:#eef3f6; --bg-panel:#f8fbfd; --bg-raised:#ffffff; --bg-well:#e4ecf1;
+  --border:#c4d3dd; --border-soft:rgba(58,90,118,0.22);
+  --text:#0f2536; --text-dim:#3f5b70; --text-faint:#7793a5;
+  --accent: var(--copper-600); --accent-text:#fff7ef; --grid-line: rgba(58,90,118,0.10);
+  color-scheme: light;
+}
+
+*{box-sizing:border-box;}
+[hidden]{ display:none !important; }
+html,body{height:100%;}
+body{
+  margin:0;
+  background:
+    radial-gradient(circle at 1px 1px, var(--grid-line) 1px, transparent 1px) 0 0/28px 28px,
+    var(--bg);
+  color:var(--text);
+  font-family:var(--font-body);
+  -webkit-font-smoothing:antialiased;
+}
+::selection{ background:var(--copper-glow); }
+
+.sheet{
+  min-height:100vh;
+  display:flex;
+  flex-direction:column;
+}
+
+/* ---------- title block ---------- */
+.titleblock{
+  display:flex;
+  align-items:baseline;
+  justify-content:space-between;
+  gap:24px;
+  padding:22px clamp(16px,3vw,40px) 16px;
+  border-bottom:1px solid var(--border);
+  flex-wrap:wrap;
+}
+.titleblock h1{
+  font-family:var(--font-display);
+  font-weight:900;
+  font-size:clamp(22px,2.6vw,32px);
+  letter-spacing:-0.01em;
+  margin:0;
+  text-wrap:balance;
+  line-height:1.05;
+}
+.titleblock .kicker{
+  font-family:var(--font-mono);
+  font-size:11px;
+  letter-spacing:0.14em;
+  text-transform:uppercase;
+  color:var(--accent);
+  margin:0 0 6px;
+}
+.titleblock .desc{
+  margin:6px 0 0;
+  color:var(--text-dim);
+  font-size:14px;
+  max-width:56ch;
+}
+.stampstats{
+  display:flex;
+  gap:0;
+  font-family:var(--font-mono);
+  font-size:11px;
+  border:1px solid var(--border);
+  border-radius:3px;
+  overflow:hidden;
+  flex-shrink:0;
+}
+.stampstats div{
+  padding:8px 14px;
+  border-left:1px solid var(--border);
+  min-width:74px;
+}
+.stampstats div:first-child{border-left:none;}
+.stampstats .lbl{
+  display:block;
+  color:var(--text-faint);
+  letter-spacing:0.08em;
+  text-transform:uppercase;
+  font-size:9.5px;
+  margin-bottom:3px;
+}
+.stampstats .val{
+  color:var(--text);
+  font-variant-numeric:tabular-nums;
+  font-weight:600;
+}
+.stampstats .val.accent{ color:var(--accent); }
+
+/* ---------- workshop layout ---------- */
+.workshop{
+  flex:1;
+  display:grid;
+  grid-template-columns:minmax(300px,360px) 1fr;
+  min-height:0;
+}
+@media (max-width:840px){
+  .workshop{ grid-template-columns:1fr; }
+}
+
+.console{
+  border-right:1px solid var(--border);
+  overflow-y:auto;
+  padding:20px clamp(14px,2vw,24px) 40px;
+  display:flex;
+  flex-direction:column;
+  gap:22px;
+}
+@media (max-width:840px){
+  .console{ border-right:none; border-bottom:1px solid var(--border); }
+}
+
+.field-group{ display:flex; flex-direction:column; gap:14px; }
+.group-label{
+  font-family:var(--font-mono);
+  font-size:11px;
+  letter-spacing:0.12em;
+  text-transform:uppercase;
+  color:var(--text-faint);
+  display:flex;
+  align-items:center;
+  gap:8px;
+  margin:0;
+}
+.group-label::after{
+  content:"";
+  flex:1;
+  height:1px;
+  background:var(--border);
+}
+
+.field{ display:flex; flex-direction:column; gap:6px; }
+.field label{
+  font-size:13px;
+  font-weight:600;
+  color:var(--text);
+  display:flex;
+  justify-content:space-between;
+  align-items:baseline;
+  gap:8px;
+}
+.field .hint{
+  font-size:11.5px;
+  color:var(--text-faint);
+  font-weight:400;
+}
+.field .readout{
+  font-family:var(--font-mono);
+  font-size:12px;
+  color:var(--accent);
+  font-variant-numeric:tabular-nums;
+}
+
+input[type="number"], select{
+  font-family:var(--font-mono);
+  font-size:14px;
+  background:var(--bg-well);
+  border:1px solid var(--border);
+  color:var(--text);
+  border-radius:4px;
+  padding:9px 10px;
+  width:100%;
+}
+input[type="number"]:focus, select:focus, button:focus-visible, input[type="range"]:focus-visible, input[type="checkbox"]:focus-visible{
+  outline:2px solid var(--accent);
+  outline-offset:1px;
+}
+input[type="range"]{
+  width:100%;
+  accent-color:var(--accent);
+}
+.unit-toggle{
+  display:inline-flex;
+  border:1px solid var(--border);
+  border-radius:4px;
+  overflow:hidden;
+  font-family:var(--font-mono);
+  font-size:11px;
+}
+.unit-toggle button{
+  background:var(--bg-well);
+  color:var(--text-dim);
+  border:none;
+  padding:6px 10px;
+  cursor:pointer;
+}
+.unit-toggle button.active{
+  background:var(--accent);
+  color:var(--accent-text);
+}
+
+.inline-row{ display:flex; gap:10px; align-items:center; }
+.checkline{
+  display:flex; align-items:center; gap:8px;
+  font-size:12.5px; color:var(--text-dim);
+}
+.checkline input{ accent-color:var(--accent); width:14px; height:14px; }
+
+details.advanced{
+  border:1px solid var(--border);
+  border-radius:6px;
+  background:var(--bg-panel);
+}
+details.advanced summary{
+  cursor:pointer;
+  padding:12px 14px;
+  font-family:var(--font-mono);
+  font-size:11.5px;
+  letter-spacing:0.08em;
+  text-transform:uppercase;
+  color:var(--text-dim);
+  list-style:none;
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+details.advanced summary::-webkit-details-marker{ display:none; }
+details.advanced summary::before{
+  content:"▸";
+  color:var(--accent);
+  transition:transform .15s ease;
+}
+details.advanced[open] summary::before{ transform:rotate(90deg); }
+details.advanced .advanced-body{
+  padding:4px 14px 16px;
+  display:flex;
+  flex-direction:column;
+  gap:14px;
+  border-top:1px solid var(--border);
+}
+
+.dims-table{
+  width:100%;
+  border-collapse:collapse;
+  font-family:var(--font-mono);
+  font-size:12px;
+}
+.dims-table td{
+  padding:6px 0;
+  border-bottom:1px solid var(--border-soft);
+}
+.dims-table td:first-child{ color:var(--text-dim); }
+.dims-table td:last-child{ text-align:right; color:var(--text); font-variant-numeric:tabular-nums; }
+.dims-table tr:last-child td{ border-bottom:none; }
+
+.warnings{
+  display:flex; flex-direction:column; gap:6px;
+}
+.warning-chip{
+  display:flex; gap:8px; align-items:flex-start;
+  font-size:12px;
+  color:var(--warn);
+  background:color-mix(in srgb, var(--warn) 12%, transparent);
+  border:1px solid color-mix(in srgb, var(--warn) 40%, transparent);
+  border-radius:4px;
+  padding:8px 10px;
+  line-height:1.4;
+}
+
+/* ---------- viewport ---------- */
+.viewport-wrap{
+  position:relative;
+  min-height:420px;
+  display:flex;
+  flex-direction:column;
+}
+.viewport-wrap canvas{
+  display:block;
+  width:100%;
+  height:100%;
+  cursor:grab;
+}
+.viewport-wrap canvas:active{ cursor:grabbing; }
+.viewport-stage{
+  position:relative;
+  flex:1;
+  min-height:0;
+}
+.viewport-corner{
+  position:absolute;
+  width:22px; height:22px;
+  border:1.5px solid var(--line-300);
+  opacity:.55;
+  pointer-events:none;
+}
+.viewport-corner.tl{ top:14px; left:14px; border-right:none; border-bottom:none; }
+.viewport-corner.tr{ top:14px; right:14px; border-left:none; border-bottom:none; }
+.viewport-corner.bl{ bottom:14px; left:14px; border-right:none; border-top:none; }
+.viewport-corner.br{ bottom:14px; right:14px; border-left:none; border-top:none; }
+
+.toolbar{
+  position:absolute;
+  top:16px; left:50%;
+  transform:translateX(-50%);
+  display:flex;
+  gap:6px;
+  background:color-mix(in srgb, var(--bg-panel) 88%, transparent);
+  backdrop-filter:blur(6px);
+  border:1px solid var(--border);
+  border-radius:8px;
+  padding:5px;
+  flex-wrap:wrap;
+  justify-content:center;
+  max-width:calc(100% - 32px);
+}
+.toolbar button{
+  font-family:var(--font-mono);
+  font-size:11.5px;
+  letter-spacing:0.02em;
+  background:transparent;
+  border:1px solid transparent;
+  color:var(--text-dim);
+  padding:7px 11px;
+  border-radius:5px;
+  cursor:pointer;
+  display:flex; align-items:center; gap:6px;
+}
+.toolbar button .swatch{
+  width:9px; height:9px; border-radius:2px; display:inline-block;
+}
+.toolbar button.active{
+  background:var(--bg-well);
+  color:var(--text);
+  border-color:var(--border);
+}
+.toolbar button:hover{ color:var(--text); }
+.toolbar .sep{ width:1px; background:var(--border); margin:4px 2px; }
+.toolbar button.reset{ color:var(--accent); }
+
+.explode-control{
+  position:absolute;
+  bottom:16px; left:16px;
+  display:flex; align-items:center; gap:10px;
+  background:color-mix(in srgb, var(--bg-panel) 88%, transparent);
+  backdrop-filter:blur(6px);
+  border:1px solid var(--border);
+  border-radius:8px;
+  padding:8px 12px;
+  font-family:var(--font-mono);
+  font-size:11px;
+  color:var(--text-dim);
+}
+.explode-control input[type="range"]{ width:110px; }
+
+.hint-banner{
+  position:absolute;
+  bottom:16px; right:16px;
+  font-family:var(--font-mono);
+  font-size:10.5px;
+  color:var(--text-faint);
+  background:color-mix(in srgb, var(--bg-panel) 78%, transparent);
+  padding:6px 10px;
+  border-radius:6px;
+  border:1px solid var(--border-soft);
+  max-width:220px;
+  text-align:right;
+}
+
+.status-line{
+  min-height:20px;
+  font-family:var(--font-mono);
+  font-size:11px;
+  color:var(--text-faint);
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+.status-dot{
+  width:7px; height:7px; border-radius:50%;
+  background:var(--ok);
+  flex-shrink:0;
+}
+.status-dot.busy{ background:var(--warn); animation:pulse 0.9s ease-in-out infinite; }
+.status-dot.danger{ background:var(--danger); }
+@media (prefers-reduced-motion: reduce){ .status-dot.busy{ animation:none; } }
+@keyframes pulse{ 0%,100%{opacity:1;} 50%{opacity:.35;} }
+
+/* ---------- downloads ---------- */
+.downloads{
+  border-top:1px solid var(--border);
+  padding:14px clamp(16px,3vw,40px);
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+  align-items:center;
+}
+.dl-btn{
+  font-family:var(--font-mono);
+  font-size:12.5px;
+  display:flex;
+  align-items:center;
+  gap:9px;
+  background:var(--bg-well);
+  border:1px solid var(--border);
+  color:var(--text);
+  padding:10px 14px;
+  border-radius:6px;
+  cursor:pointer;
+}
+.dl-btn .swatch{ width:9px; height:9px; border-radius:2px; }
+.dl-btn:hover{ border-color:var(--accent); color:var(--accent); }
+.dl-btn.primary{
+  background:var(--accent);
+  color:var(--accent-text);
+  border-color:var(--accent);
+  font-weight:600;
+}
+.dl-btn.primary:hover{ filter:brightness(1.08); color:var(--accent-text); }
+.dl-btn:disabled{ opacity:.45; cursor:not-allowed; }
+.dl-note{
+  font-family:var(--font-mono);
+  font-size:10.5px;
+  color:var(--text-faint);
+  margin-left:auto;
+}
+
+button{ font:inherit; }
+a{ color:var(--accent); }
+
+.visually-hidden{
+  position:absolute; width:1px; height:1px; padding:0; margin:-1px;
+  overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0;
+}
+
+@media (max-width: 560px){
+  .stampstats{ display:none; }
+  .toolbar{ top:auto; bottom:70px; }
+  .explode-control{ left:50%; transform:translateX(-50%); }
+  .hint-banner{ display:none; }
+}
+</style>
+
+<div class="sheet">
+  <header class="titleblock">
+    <div>
+      <p class="kicker">Parametric &middot; 3 printable parts &middot; PETG / ASA</p>
+      <h1>Coffee Bean Cooling Station</h1>
+      <p class="desc">Enter your colander's outer diameter and your shop vac hose size — the base plenum, dome cover, and graduated diffuser plate regenerate to fit, with real boolean-cut geometry ready for a slicer.</p>
+    </div>
+    <div class="stampstats" aria-hidden="true">
+      <div><span class="lbl">Build</span><span class="val" id="stat-ms">—</span></div>
+      <div><span class="lbl">Tris</span><span class="val" id="stat-tris">—</span></div>
+      <div><span class="lbl">Rev</span><span class="val accent">A</span></div>
+    </div>
+  </header>
+
+  <main class="workshop">
+    <section class="console" aria-label="Design parameters">
+
+      <div class="field-group">
+        <p class="group-label">Colander</p>
+        <div class="field">
+          <label for="in-colanderOD">Outer diameter (bowl)
+            <span class="unit-toggle" role="group" aria-label="Units">
+              <button type="button" data-unit="mm" class="active">mm</button>
+              <button type="button" data-unit="in">in</button>
+            </span>
+          </label>
+          <input type="number" id="in-colanderOD" value="254" min="150" max="400" step="1">
+          <span class="hint">Measure the bowl below the rolled rim, not the rim itself.</span>
+        </div>
+
+        <div class="checkline">
+          <input type="checkbox" id="in-lipAuto" checked>
+          <label for="in-lipAuto">Estimate rim-lip diameter automatically (bowl + 14&nbsp;mm)</label>
+        </div>
+        <div class="field" id="lipOD-field" hidden>
+          <label for="in-colanderLipOD">Rim-lip outer diameter</label>
+          <input type="number" id="in-colanderLipOD" value="268" min="150" max="420" step="1">
+        </div>
+      </div>
+
+      <div class="field-group">
+        <p class="group-label">Shop vac hose</p>
+        <div class="field">
+          <label for="in-hosePreset">Hose size</label>
+          <select id="in-hosePreset">
+            <option value="31.8" selected>1.25 in (32 mm) — confirmed</option>
+            <option value="38.1">1.5 in (38 mm)</option>
+            <option value="50.8">2 in (51 mm)</option>
+            <option value="custom">Custom&hellip;</option>
+          </select>
+        </div>
+        <div class="field" id="hoseCustom-field" hidden>
+          <label for="in-hoseCustom">Custom hose ID (mm)</label>
+          <input type="number" id="in-hoseCustom" value="31.8" min="20" max="80" step="0.1">
+        </div>
+      </div>
+
+      <details class="advanced">
+        <summary>Advanced dimensions</summary>
+        <div class="advanced-body">
+          <div class="field">
+            <label for="in-colanderLipThk">Rim-lip thickness <span class="readout" id="ro-lipThk">6 mm</span></label>
+            <input type="range" id="in-colanderLipThk" min="3" max="12" step="0.5" value="6">
+          </div>
+          <div class="field">
+            <label for="in-wallT">Wall thickness <span class="readout" id="ro-wallT">3.0 mm</span></label>
+            <input type="range" id="in-wallT" min="2" max="5" step="0.1" value="3">
+            <span class="hint">Spec minimum is 3&nbsp;mm for rigidity — thinner prints faster but flexes.</span>
+          </div>
+          <div class="field">
+            <label for="in-boxHeight">Plenum depth <span class="readout" id="ro-boxHeight">100 mm</span></label>
+            <input type="range" id="in-boxHeight" min="70" max="150" step="5" value="100">
+          </div>
+          <div class="field">
+            <label for="in-domeRise">Dome rise <span class="readout" id="ro-domeRise">100 mm</span></label>
+            <input type="range" id="in-domeRise" min="60" max="150" step="5" value="100">
+          </div>
+          <div class="field">
+            <label for="in-spokeCount">Spoke baffle count <span class="readout" id="ro-spokeCount">8</span></label>
+            <input type="range" id="in-spokeCount" min="6" max="12" step="1" value="8">
+          </div>
+          <div class="field">
+            <label for="in-vacPortZ">Vac port height <span class="readout" id="ro-vacPortZ">35 mm</span></label>
+            <input type="range" id="in-vacPortZ" min="20" max="60" step="1" value="35">
+            <span class="hint">Height of the port centerline above the floor.</span>
+          </div>
+        </div>
+      </details>
+
+      <div class="field-group" id="warnings-group" hidden>
+        <p class="group-label">Flags</p>
+        <div class="warnings" id="warnings-list"></div>
+      </div>
+
+      <div class="field-group">
+        <p class="group-label">Computed dimensions</p>
+        <table class="dims-table" id="dims-table"><tbody></tbody></table>
+      </div>
+
+      <div class="status-line">
+        <span class="status-dot" id="status-dot"></span>
+        <span id="status-text">Ready</span>
+      </div>
+    </section>
+
+    <section class="viewport-wrap" aria-label="3D preview">
+      <div class="viewport-stage">
+        <canvas id="viewport" role="img" aria-label="Live 3D preview of the cooling station"></canvas>
+        <div class="viewport-corner tl"></div>
+        <div class="viewport-corner tr"></div>
+        <div class="viewport-corner bl"></div>
+        <div class="viewport-corner br"></div>
+
+        <div class="toolbar">
+          <button type="button" class="active" data-toggle="baseBox"><span class="swatch" style="background:#c9793d"></span>Base box</button>
+          <button type="button" class="active" data-toggle="dome"><span class="swatch" style="background:#5fa4c9"></span>Dome</button>
+          <button type="button" class="active" data-toggle="diffuser"><span class="swatch" style="background:#c9c2b4"></span>Diffuser</button>
+          <span class="sep"></span>
+          <button type="button" class="reset" id="btn-reset-view">Reset view</button>
+        </div>
+
+        <div class="explode-control">
+          <span>Explode</span>
+          <input type="range" id="in-explode" min="0" max="100" value="0">
+        </div>
+
+        <div class="hint-banner">Drag to orbit &middot; scroll to zoom</div>
+      </div>
+
+      <div class="downloads">
+        <button class="dl-btn primary" id="dl-baseBox"><span class="swatch" style="background:#241205"></span>Base box .stl</button>
+        <button class="dl-btn primary" id="dl-dome"><span class="swatch" style="background:#241205"></span>Dome cover .stl</button>
+        <button class="dl-btn primary" id="dl-diffuser"><span class="swatch" style="background:#241205"></span>Diffuser .stl</button>
+        <button class="dl-btn" id="dl-all">Download all 3</button>
+        <span class="dl-note" id="dl-note">Binary STL &middot; mm units &middot; check fit before printing full-size</span>
+      </div>
+    </section>
+  </main>
+</div>

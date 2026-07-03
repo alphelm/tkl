@@ -10,6 +10,12 @@ Confirmed inputs for this build:
 - Shop vac hose: **1.25" (1-1/4") nominal**
 - Box shape: **circular**
 
+**Don't want to model this by hand?** [`site/`](./site) has a parametric
+generator — enter your colander's diameter and hose size, and it builds all
+three parts (with real boolean-cut vac port, seat, slots, and graduated
+diffuser holes) and exports printable STL files directly from the browser.
+Open [`site/dist/coffee-cooling-station.html`](./site/dist/coffee-cooling-station.html).
+
 Everything else below is parametric — plug in your own colander
 measurement and the rest of the model updates.
 
